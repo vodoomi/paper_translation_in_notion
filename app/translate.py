@@ -8,7 +8,7 @@ import google.generativeai as genai
 class Translator:
     def __init__(self, model_name: str):
         load_dotenv()
-        self.genai_api_key = os.getenv("GENAI_API_KEY")
+        self.genai_api_key = os.getenv("GEMINI_API_KEY")
         genai.configure(api_key=self.genai_api_key)
         self.model = genai.GenerativeModel(model_name=model_name)
 
