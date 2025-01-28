@@ -22,6 +22,7 @@ echo "NOTION_USER_ID=your notion user id in slack" >> .env
 echo "GEMINI_API_KEY=your gemini api key" >> .env
 echo "NOTION_TOKEN=your internal integration secret" >> .env
 echo "NOTION_DATABASE_ID=your notion database id" >> .env
+echo "GYAZO_ACCESS_TOKEN=your gyazo access token" >> .env
 ```
 
 2. Install dependencies

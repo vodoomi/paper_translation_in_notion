@@ -80,6 +80,17 @@ class NotionWriter:
                         "expression": line.strip()
                     }
                 })
+            elif line.startswith("https://") and line.endswith(".jpg"):
+                blocks.append({
+                    "object": "block",
+                    "type": "image",
+                    "image": {
+                        "type": "external",
+                        "external": {
+                            "url": line
+                        }
+                    }
+                })
             elif line.startswith("- "):
                 blocks.append({
                     "object": "block",
