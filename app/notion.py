@@ -153,7 +153,8 @@ class NotionWriter:
 
         # 子ページにブロックを追加
         blocks = self.markdown_to_notion_blocks(child_content)
-        self.notion.blocks.children.append(block_id=child_page["id"], children=blocks)
+        for i in range(0, len(blocks), 100):
+            self.notion.blocks.children.append(block_id=child_page["id"], children=blocks[i:i+100])
         return child_page
 
     def make_nest_page(self, target_page_title: str, child_page_content: str):

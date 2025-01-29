@@ -30,10 +30,11 @@ echo "GYAZO_ACCESS_TOKEN=your gyazo access token" >> .env
 poetry install
 ```
 
-3. Modify module names in import
+3. Modify module names in import and arg name
 ```bash
 sed -i 's/from rapidocr_onnxruntime.ch_ppocr_rec.text_recognize/from rapidocr_onnxruntime.ch_ppocr_v3_rec.text_recognize/' .venv/Lib/site-packages/cnocr/ppocr/rapid_recognizer.py
 sed -i 's/from rapidocr_onnxruntime.ch_ppocr_det/from rapidocr_onnxruntime.ch_ppocr_v3_det/' .venv/Lib/site-packages/cnstd/ppocr/rapid_detector.py
+sed -i 's/fitz.open(pdf_fp/fitz.open(stream=pdf_fp/' .venv/Lib/site-packages/pix2text/pix_to_text.py
 ```
 
 4. Run
@@ -45,6 +46,4 @@ poetry run python main.py
 5. Add paper in Notion database
 
 ### Response
-```Slack
-Hey there @Notion! 
-```
+Generate translations on Notion child pages.
