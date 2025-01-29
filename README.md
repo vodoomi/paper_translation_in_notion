@@ -1,4 +1,4 @@
-# paper_translation_in_notion
+# Paper Translation in Notion
 
 ### Preprocess
 1. Make Slack App with Socket Mode to use Slack API
@@ -47,3 +47,9 @@ poetry run python main.py
 
 ### Response
 Generate translations on Notion child pages.
+
+### Demo
+![Image](https://github.com/user-attachments/assets/f5023265-327f-47a5-b96b-c98f8ea0e080)
+
+### Reference
+- Grootendorst, M. (2022). BERTopic: Neural topic modeling with a class-based TF-IDF procedure. arXiv preprint arXiv:2203.05794.
