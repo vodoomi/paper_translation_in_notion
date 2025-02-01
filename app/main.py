@@ -47,7 +47,7 @@ def message_hello(message, say):
         )
         translator = Translator(cfg.model_name)
         md = translator.pdf_to_markdown(url, cfg.output_dir, cfg.gyazo_endpoint)
-        md_jp = translator.translate_markdown(cfg.prompt, md)
+        md_jp = translator.translate_markdown(cfg.prompt, md, cfg.max_input_words)
         md_jp = translator.replace_img_url(md_jp)
 
         notion = NotionWriter()
