@@ -9,6 +9,29 @@ import google.generativeai as genai
 
 
 class Translator:
+    """
+    PDFファイルをmarkdownに変換し、翻訳するクラス
+
+    Args:
+        model_name (str): モデル名
+
+    Attributes:
+        genai_api_key (str): GenAI APIキー
+        model (genai.GenerativeModel): GenAIのモデル
+        gyazo_access_token (str): Gyazoアクセストークン
+        image_urls (list): 画像URLのリスト
+        header_position (dict): 
+            ヘッダーの位置
+            (key: 何個目のヘッダーか, value: 何行目か)
+            ex. {0: 0, 1: 5, 2: 8, 3: 12}
+        header_n_words (dict):
+            各ヘッダーより前の単語数
+            (key: 何個目のヘッダーか, value: そのヘッダーより前の単語数)
+            ex. {0: 0, 1: 20, 2: 30, 3: 40}
+        image_position (list): 
+            画像の位置 -> 所属しているヘッダーが何個目か
+            ex. [6, 10, 11] -> [1, 2, 2]
+    """
     def __init__(self, model_name: str):
         load_dotenv()
         self.genai_api_key = os.getenv("GEMINI_API_KEY")
@@ -17,6 +40,7 @@ class Translator:
         self.gyazo_access_token = os.getenv("GYAZO_ACCESS_TOKEN")
         self.image_urls = []
         self.header_position = {}
+        self.header_n_words = {}
         self.image_position = []
 
     def pdf_to_markdown(self, pdf_path: str, output_dir: str = "../output/", gyazo_endpoint: str = "https://upload.gyazo.com/api/upload", debug: bool = False):
@@ -35,13 +59,17 @@ class Translator:
         image_pattern = r'!\[.*?\]\((.*?\.jpg)\)'
         header_pattern = r'(#+)'
 
-        # 画像URLとヘッダー位置を抽出
+        # 画像URLとヘッダー位置、単語数を抽出
         header_count = 0
+        total_n_words = 0
         for i, line in enumerate(md.splitlines()):
             header_match = re.match(header_pattern, line)
             if header_match:
                 self.header_position[header_count] = i
+                self.header_n_words[header_count] = total_n_words
                 header_count += 1
+            n_words = line.count(' ') + 1 if line.strip() else 0
+            total_n_words += n_words
 
             image_match = re.search(image_pattern, line)
             if image_match:
@@ -58,7 +86,7 @@ class Translator:
                     break
 
         # 画像URLを削除
-        md = re.sub(image_pattern+"\n", '', md)
+        md = re.sub(image_pattern, '', md)
 
         return md
     
@@ -72,14 +100,32 @@ class Translator:
         url = response.json()['url']
         return url
 
-    def translate_markdown(self, prompt: str, md: str):
-        result = self.model.generate_content(
-            [prompt, md], 
-            generation_config=genai.GenerationConfig(
-                temperature=0
+    def translate_markdown(self, prompt: str, md: str, max_words: int):
+        # 単語数が上限を超えるヘッダーを取得
+        split_idx_list = []
+        for max_words_ in range(max_words, max(self.header_n_words.values()), max_words):
+            for k, v in self.header_n_words.items():
+                if v > max_words_:
+                    split_idx_list.append(k)
+                    break
+        # ヘッダーの開始行を取得
+        split_row_list = [self.header_position[i] for i in split_idx_list]
+        # mdを分割
+        split_md = md.splitlines()
+        split_md_list = [split_md[i:j] for i, j in zip([0]+split_row_list, split_row_list+[None])]
+        # 各分割したmdに対して翻訳
+        md_jp_list = []
+        for md in split_md_list:
+            md = '\n'.join(md)
+            result = self.model.generate_content(
+                [prompt, md], 
+                generation_config=genai.GenerationConfig(
+                    temperature=0
+                )
             )
-        )
-        return result.text
+            print(result.usage_metadata)
+            md_jp_list.append(result.text)
+        return '\n'.join(md_jp_list)
     
     def replace_img_url(self, md: str):
         md_lines = md.splitlines()
@@ -89,8 +135,13 @@ class Translator:
         for i, line in enumerate(md_lines):
             header_match = re.match(header_pattern, line)
             if header_match:
-                if header_count in self.image_position:
-                    img_url = self.image_urls[self.image_position.index(header_count)]
+                # 各ヘッダーに所属する画像のインデックスを取得
+                img_idx = [i for i, pos in enumerate(self.image_position) if pos == header_count]
+                # 画像のインデックスを逆順にする
+                img_idx.reverse()
+                # 画像URLを挿入
+                img_urls = [self.image_urls[i] for i in img_idx]
+                for img_url in img_urls:
                     md_lines.insert(i+1, img_url)
                 header_count += 1
 
