@@ -11,25 +11,31 @@ class NotionWriter:
         self.notion_api_token = os.getenv("NOTION_TOKEN")
         self.database_id = os.getenv("NOTION_DATABASE_ID")
         self.notion = Client(auth=self.notion_api_token)
-        self.pages = None
+        self.untranslated_page = None
 
-    def get_pages_from_database(self):
+    def get_untranslated_page(self):
         """
-        データベース内のページ一覧を取得する。
+        未翻訳のページを取得する。
         """
-        response = self.notion.databases.query(self.database_id)
-        self.pages = response.get("results", [])
+        response = self.notion.databases.query(
+            self.database_id,
+            filter={
+                "property": "Translate Completed",
+                "checkbox": {"equals": False}
+            }
+        )
+        untranslated_pages = response.get("results", [])
+        assert len(untranslated_pages) == 1, "There should be only one untranslated page." 
+        self.untranslated_page = untranslated_pages[0]
 
-    def find_page_by_title(self, pages, title):
+    def get_title_and_url(self):
         """
-        指定したタイトルに一致するページを探す。
+        未翻訳のページからタイトルとURLを取得する。
         """
-        for page in pages:
-            # ページのプロパティにあるタイトルを取得
-            page_title = page["properties"]["タイトル"]["title"][0]["plain_text"]
-            if page_title == title:
-                return page
-        return None
+        assert self.untranslated_page is not None, "Untranslated page not loaded. Please run get_untranslated_page() first."
+        title = self.untranslated_page["properties"]["タイトル"]["title"][0]["plain_text"]
+        url = self.untranslated_page["properties"]["リンク"]["url"]
+        return title, url
     
     def markdown_to_notion_blocks(self, markdown_text: str, chunk_size: int=2000) -> list:
         """
@@ -159,17 +165,24 @@ class NotionWriter:
             self.notion.blocks.children.append(block_id=child_page["id"], children=blocks[i:i+100])
         return child_page
 
-    def make_nest_page(self, target_page_title: str, child_page_content: str):
-        assert self.pages is not None, "Pages not loaded. Please run get_pages_from_database() first."
-        # タイトルに一致するページを検索
-        target_page = self.find_page_by_title(self.pages, target_page_title)
+    def make_nest_page(self, child_page_content: str):
+        assert self.untranslated_page is not None, "Untranslated page not loaded. Please run get_untranslated_page() first."
+        # 未翻訳のページからIDを取得
+        page_id = self.untranslated_page["id"]
+        # 子ページを作成
+        child_page = self.create_child_page(page_id,  child_page_content)
+        print("Created child page with title")
 
-        if target_page:
-            print(f"Found target page")
-            parent_page_id = target_page["id"]
-
-            # 子ページを作成
-            child_page = self.create_child_page(parent_page_id,  child_page_content)
-            print("Created child page with title")
-        else:
-            print("Target page with title not found.")
+    def input_translated_completed(self):
+        """
+        翻訳完了フラグを立てる。
+        """
+        assert self.untranslated_page is not None, "Untranslated page not loaded. Please run get_untranslated_page() first."
+        self.notion.pages.update(
+            page_id=self.untranslated_page["id"],
+            properties={
+                "Translate Completed": {
+                    "checkbox": True
+                }
+            }
+        )

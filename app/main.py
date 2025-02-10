@@ -21,20 +21,6 @@ def message_hello(message, say):
     use_id = message['user']
     # Notionからメッセージを受信したとき
     if use_id == os.environ.get("NOTION_USER_ID"):
-        # タイトル部分を取得
-        title = message["blocks"][1]["text"]["text"]
-        title = title.split("n=slack|")[-1].split(">*")[0]
-        # URL部分を取得
-        count = 0
-        while True:
-            if "リンク" in message["blocks"][1]["fields"][count]["text"]:
-                url = message["blocks"][1]["fields"][count]["text"]
-                url = url.split("*リンク*\n")[-1].replace("\u200b", "")
-                response = requests.get(url)
-                response.raise_for_status()
-                url = response.content
-                break
-            count += 1
         # イベントがトリガーされたチャンネルへ say() でメッセージを送信します
         say(
             blocks=[
@@ -45,14 +31,23 @@ def message_hello(message, say):
             ],
             text="PDFファイルを処理中です..."
         )
+        # 未翻訳ページの取得
+        notion = NotionWriter()
+        notion.get_untranslated_page()
+        title, url = notion.get_title_and_url()
+        response = requests.get(url)
+        response.raise_for_status()
+        url = response.content
+
+        # PDFの翻訳
         translator = Translator(cfg.model_name)
         md = translator.pdf_to_markdown(url, cfg.output_dir, cfg.gyazo_endpoint)
         md_jp = translator.translate_markdown(cfg.prompt, md, cfg.max_input_words)
         md_jp = translator.replace_img_url(md_jp)
 
-        notion = NotionWriter()
-        notion.get_pages_from_database()
-        notion.make_nest_page(title, md_jp)
+        # Notion にページを作成
+        notion.make_nest_page(md_jp)
+        notion.input_translated_completed()
         say(
             blocks=[
                 {

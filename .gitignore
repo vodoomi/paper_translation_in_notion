@@ -1,5 +1,6 @@
 __pycache__/
 .env
+.env.yaml
 /input
 /output
 .python-version
