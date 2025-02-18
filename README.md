@@ -1,6 +1,10 @@
 # Paper Translation in Notion
 
+## Architecture
+![ptn_architecture](https://github.com/user-attachments/assets/37a5fa5f-6eb2-4a18-aa62-93dc12544cee)
+
 ## Local
+
 ### Preprocess
 1. Make Slack App with Socket Mode to use Slack API
 2. Invite Slack Bot to the channel
