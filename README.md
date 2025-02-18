@@ -1,7 +1,7 @@
 # Paper Translation in Notion
 
 ## Architecture
-![ptn_architecture](https://github.com/user-attachments/assets/37a5fa5f-6eb2-4a18-aa62-93dc12544cee)
+![ptn_architecture](https://github.com/user-attachments/assets/93eb48d9-bb4d-475d-bf28-414c0673c75c)
 
 ## Local
 
