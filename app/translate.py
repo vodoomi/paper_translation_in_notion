@@ -35,9 +35,11 @@ class Translator:
     def __init__(self, model_name: str):
         load_dotenv()
         self.genai_api_key = os.getenv("GEMINI_API_KEY")
+        assert self.genai_api_key, "You need to set the GEMINI_API_KEY environment variable."
         genai.configure(api_key=self.genai_api_key)
         self.model = genai.GenerativeModel(model_name=model_name)
         self.gyazo_access_token = os.getenv("GYAZO_ACCESS_TOKEN")
+        assert self.gyazo_access_token, "You need to set the GYAZO_ACCESS_TOKEN environment variable."
         self.image_urls = []
         self.header_position = {}
         self.header_n_words = {}

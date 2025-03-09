@@ -9,7 +9,9 @@ class NotionWriter:
     def __init__(self):
         load_dotenv()
         self.notion_api_token = os.getenv("NOTION_TOKEN")
+        assert self.notion_api_token, "You need to set the NOTION_TOKEN environment variable."
         self.database_id = os.getenv("NOTION_DATABASE_ID")
+        assert self.database_id, "You need to set the NOTION_DATABASE_ID environment variable."
         self.notion = Client(auth=self.notion_api_token)
         self.untranslated_page = None
 
