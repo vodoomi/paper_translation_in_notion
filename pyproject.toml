@@ -8,12 +8,11 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-fastapi = "^0.115.7"
-uvicorn = "^0.34.0"
 slack-bolt = "^1.22.0"
 python-dotenv = "^1.0.1"
 numpy = "1.26.4"
 onnxruntime = "1.17.0"
+doclayout-yolo = "0.0.3"
 pix2text = "1.1.2.3"
 google-generativeai = "^0.8.4"
 notion-client = "^2.3.0"
