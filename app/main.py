@@ -35,15 +35,11 @@ def message_hello(message, say):
         notion = NotionWriter()
         notion.get_untranslated_page()
         title, url = notion.get_title_and_url()
-        response = requests.get(url)
-        response.raise_for_status()
-        url = response.content
 
-        # PDFの翻訳
-        translator = Translator(cfg.model_name)
-        md = translator.pdf_to_markdown(url, cfg.output_dir, cfg.gyazo_endpoint)
-        md_jp = translator.translate_markdown(cfg.prompt, md, cfg.max_input_words)
-        md_jp = translator.replace_img_url(md_jp)
+        # # PDFの翻訳
+        translator = Translator(cfg.model_name, cfg.mistral_model_name)
+        md = translator.pdf_to_markdown(url)
+        md_jp = translator.translate_markdown(cfg.prompt, md, cfg.max_input_words, cfg.gyazo_endpoint)
 
         # Notion にページを作成
         notion.make_nest_page(md_jp)

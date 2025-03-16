@@ -28,6 +28,7 @@ echo "GEMINI_API_KEY=your gemini api key" >> .env
 echo "NOTION_TOKEN=your internal integration secret" >> .env
 echo "NOTION_DATABASE_ID=your notion database id" >> .env
 echo "GYAZO_ACCESS_TOKEN=your gyazo access token" >> .env
+echo "MISTRAL_API_KEY=your mistral api key" >> .env
 ```
 
 2. Install dependencies
@@ -35,20 +36,13 @@ echo "GYAZO_ACCESS_TOKEN=your gyazo access token" >> .env
 poetry install
 ```
 
-3. Modify module names in import and arg name
-```bash
-sed -i 's/from rapidocr_onnxruntime.ch_ppocr_rec.text_recognize/from rapidocr_onnxruntime.ch_ppocr_v3_rec.text_recognize/' .venv/Lib/site-packages/cnocr/ppocr/rapid_recognizer.py
-sed -i 's/from rapidocr_onnxruntime.ch_ppocr_det/from rapidocr_onnxruntime.ch_ppocr_v3_det/' .venv/Lib/site-packages/cnstd/ppocr/rapid_detector.py
-sed -i 's/fitz.open(pdf_fp/fitz.open(stream=pdf_fp/' .venv/Lib/site-packages/pix2text/pix_to_text.py
-```
-
-4. Run
+3. Run
 ```bash
 cd app
 poetry run python main.py
 ```
 
-5. Add paper URL in Notion database
+4. Add paper URL in Notion database
 
 ## Docker container in local
 ### Preprocess
@@ -65,6 +59,7 @@ echo "GEMINI_API_KEY=your gemini api key" >> .env
 echo "NOTION_TOKEN=your internal integration secret" >> .env
 echo "NOTION_DATABASE_ID=your notion database id" >> .env
 echo "GYAZO_ACCESS_TOKEN=your gyazo access token" >> .env
+echo "MISTRAL_API_KEY=your mistral api key" >> .env
 ```
 
 2. Build & Run
@@ -102,6 +97,7 @@ echo "GEMINI_API_KEY: 'your gemini api key'" >> .env.yaml
 echo "NOTION_TOKEN: 'your internal integration secret'" >> .env.yaml
 echo "NOTION_DATABASE_ID: 'your notion database id'" >> .env.yaml
 echo "GYAZO_ACCESS_TOKEN: 'your gyazo access token'" >> .env.yaml
+echo "MISTRAL_API_KEY: 'your mistral api key'" >> .env.yaml
 # Cloud Run Functions
 cd cloud_functions
 touch .env.yaml
@@ -114,15 +110,15 @@ cd ..
 2. Build & Deploy
 ```bash
 # Push Docker Container
-docker build -t {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO_NAME}/{IMAGE_NAME}
+docker build -t {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO_NAME}/{IMAGE_NAME} .
 docker push {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO_NAME}/{IMAGE_NAME}
 # Deploy Cloud Run Jobs
 gcloud run jobs deploy {JOB_NAME} \
 --image {REGION}-docker.pkg.dev/{PROJECT_ID}/{REPO_NAME}/{IMAGE_NAME} \
---cpu=4 \
+--cpu=1 \
 --max-retries=0 \
 --parallelism=1 \
---memory=8Gi \
+--memory=512Mi \
 --task-timeout=1800 \
 --region={REGION} \
 --env-vars-file=.env.yaml
