@@ -3,6 +3,9 @@ import re
 import requests
 from dotenv import load_dotenv
 import base64
+import asyncio
+import functools
+from time import time
 
 from mistralai import Mistral
 from mistralai.models import OCRResponse
@@ -91,6 +94,45 @@ class Translator:
             n_words = line.count(' ') + 1 if line.strip() else 0
             total_n_words += n_words
 
+    # 同期的な処理を非同期で呼び出すためのヘルパー関数
+    async def generate_content_async(self, model, prompt, md_chunk):
+        loop = asyncio.get_running_loop()
+        # 同期メソッド model.generate_content をスレッドプールで実行
+        result = await loop.run_in_executor(
+            None,
+            # generation_configのようにキーワードを指定した引数を使用するため、functools.partialを使う
+            functools.partial(
+                model.generate_content,
+                [prompt, md_chunk],
+                generation_config=genai.GenerationConfig(
+                    temperature=0
+                )
+            )
+        )
+        return result
+
+
+    async def process_md_chunks(self, model, prompt, split_md_list):
+        # API 呼び出し結果を一時的に格納するリスト
+        md_jp_list = []
+
+        # すべての md_chunk について並列に処理させる
+        tasks = []
+        for md in split_md_list:
+            md_chunk = "\n".join(md)
+            tasks.append(self.generate_content_async(model, prompt, md_chunk))
+
+        # 非同期で全タスクを実行して結果をまとめる
+        results = await asyncio.gather(*tasks)
+
+        for res in results:
+            print(res.usage_metadata)  # ログ出力や解析などに利用
+            md_jp_list.append(res.text)
+
+        # すべてのテキストを結合
+        md_jp = "\n".join(md_jp_list)
+        return md_jp
+
     def translate_markdown(self, prompt: str, md: str, max_words: int, gyazo_endpoint: str) -> str:
         # 単語数が上限を超えるヘッダーを取得
         split_idx_list = []
@@ -105,19 +147,11 @@ class Translator:
         split_md = md.splitlines()
         split_md_list = [split_md[i:j] for i, j in zip([0]+split_row_list, split_row_list+[None])]
         # 各分割したmdに対して翻訳
-        md_jp_list = []
-        for md in split_md_list:
-            md = '\n'.join(md)
-            result = self.model.generate_content(
-                [prompt, md], 
-                generation_config=genai.GenerationConfig(
-                    temperature=0
-                )
-            )
-            print(result.usage_metadata)
-            md_jp_list.append(result.text)
-
-        md_jp = '\n'.join(md_jp_list)
+        start = time()
+        # イベントループ上で処理関数を実行
+        md_jp = asyncio.run(self.process_md_chunks(self.model, prompt, split_md_list))
+        end = time()
+        print(f"Translation time: {end - start:.2f} seconds")
         # 画像をgyazoから参照できるURLに置き換え
         md_jp = self.replace_images_in_markdown(md_jp, self.images_dict, gyazo_endpoint)
         return md_jp
