@@ -45,7 +45,6 @@ class NotionWriter:
         テーブル( | col1 | col2 | ... ) や数式($$ ... $$)、見出し等を処理する。
         """
         # --- 前準備 ---
-        block_math_flag = False
         blocks = []
 
         # 改行区切りで処理しやすいように行のリストにする
@@ -67,6 +66,19 @@ class NotionWriter:
                     table_block = self.build_table_block(table_data)
                     blocks.append(table_block)
                 continue
+            # ブロック数式の場合もまとめてパースする
+            elif raw_line.startswith("$$"):
+                block_math_data, used_lines = self.collect_and_parse_block_math(lines, start_index=i)
+                i += used_lines  # ブロック数式行を一気に消費
+                # ブロック数式の Notionブロックを生成して追加
+                blocks.append({
+                    "object": "block",
+                    "type": "equation",
+                    "equation": {
+                        "expression": block_math_data
+                    }
+                })
+                continue
             else:
                 # テーブル行じゃない場合、元のロジックでチャンクを切り出して処理
                 for chunk_start in range(0, len(raw_line), chunk_size):
@@ -74,18 +86,6 @@ class NotionWriter:
                     if not line:
                         continue
 
-                    if line.startswith("$$"):
-                        # ブロック数式の開始/終了フラグをトグル
-                        block_math_flag = not block_math_flag
-                    elif block_math_flag:
-                        # ブロック数式モード中
-                        blocks.append({
-                            "object": "block",
-                            "type": "equation",
-                            "equation": {
-                                "expression": line
-                            }
-                        })
                     elif line.startswith("# "):
                         # Heading 1
                         blocks.append({
@@ -286,6 +286,23 @@ class NotionWriter:
             }
         }
         return table_block
+    
+    def collect_and_parse_block_math(self, lines, start_index: int):
+        block_math_lines = []
+        idx = start_index + 1  # $$ の次の行からスタート
+        while idx < len(lines):
+            if lines[idx].startswith("$$"):
+                break
+            else:
+                block_math_lines.append(lines[idx].strip())
+                idx += 1
+        used_line_count = len(block_math_lines) + 2  # $$ の行も含めてカウント
+        if not block_math_lines:
+            return [], 0
+        
+        # block_math_lines をパースして1行の数式にする
+        block_math = "".join(block_math_lines).strip()
+        return block_math, used_line_count
     
     def get_inline_equation_text(self, line: str) -> list:
         """
