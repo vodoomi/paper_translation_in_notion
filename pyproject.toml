@@ -13,6 +13,7 @@ numpy = "1.26.4"
 google-generativeai = "^0.8.4"
 notion-client = "^2.3.0"
 mistralai = "^1.5.1"
+markdown-it-py = "^3.0.0"
 
 
 [build-system]

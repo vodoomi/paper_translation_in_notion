@@ -6,10 +6,12 @@ import base64
 import asyncio
 import functools
 from time import time
+from typing import List, Tuple
 
 from mistralai import Mistral
 from mistralai.models import OCRResponse
 import google.generativeai as genai
+from markdown_it import MarkdownIt
 
 
 class Translator:
@@ -66,8 +68,6 @@ class Translator:
         )
         # ページごとに分かれているOCR結果を結合
         md = self.get_combined_markdown(ocr_response)
-        # ヘッダーの位置を取得
-        self.get_header_position(md)
         return md
 
     def get_combined_markdown(self, ocr_response: OCRResponse) -> str:
@@ -134,6 +134,10 @@ class Translator:
         return md_jp
 
     def translate_markdown(self, prompt: str, md: str, max_words: int, gyazo_endpoint: str) -> str:
+        # 表を除去
+        plain_md, tables = self.split_md(md)
+        # ヘッダーの位置を取得
+        self.get_header_position(md)
         # 単語数が上限を超えるヘッダーを取得
         split_idx_list = []
         for max_words_ in range(max_words, max(self.header_n_words.values()), max_words):
@@ -144,7 +148,7 @@ class Translator:
         # ヘッダーの開始行を取得
         split_row_list = [self.header_position[i] for i in split_idx_list]
         # mdを分割
-        split_md = md.splitlines()
+        split_md = plain_md.splitlines()
         split_md_list = [split_md[i:j] for i, j in zip([0]+split_row_list, split_row_list+[None])]
         # 各分割したmdに対して翻訳
         start = time()
@@ -154,6 +158,8 @@ class Translator:
         print(f"Translation time: {end - start:.2f} seconds")
         # 画像をgyazoから参照できるURLに置き換え
         md_jp = self.replace_images_in_markdown(md_jp, self.images_dict, gyazo_endpoint)
+        # 表を元に戻す
+        md_jp = self.merge_tables(md_jp, md, tables)
         return md_jp
     
     def replace_images_in_markdown(self, markdown_str: str, images_dict: dict, gyazo_endpoint: str) -> str:
@@ -172,3 +178,56 @@ class Translator:
         )
         url = response.json()['url']
         return url
+    
+
+    def split_md(self, md_text: str) -> Tuple[str, List[Tuple[int, int]]]:
+        """
+        表ブロックだけ除外しつつ、'#' 見出しを含むすべての行を保持する。
+        
+        Returns
+        -------
+        plain_md : str
+            表を除去した Markdown 全体
+        tables   : List[(start, end)]
+            除外した表の行範囲 (0-index, end は non-inclusive)
+        """
+        md = MarkdownIt("commonmark", {"tables": True})
+        tokens = md.parse(md_text)
+
+        # ① 表の行範囲を抽出
+        table_ranges: List[Tuple[int, int]] = []
+        stack: List[int] = []
+
+        for tok in tokens:
+            if tok.type == "table_open":
+                # tok.map → (line_start, line_end) ただし end は table_open の行と同じなので使わない
+                stack.append(tok.map[0])
+            elif tok.type == "table_close":
+                start = stack.pop()
+                end = tok.map[1]           # table_close.map[1] はブロック直後の行
+                table_ranges.append((start, end))
+
+        # ② 行ごとに「残す／捨てる」を判定
+        lines = md_text.splitlines(keepends=True)
+        keep = [True] * len(lines)
+        for s, e in table_ranges:
+            for i in range(s, e):
+                keep[i] = False
+
+        # ③ 再構成（見出しの '#' も完全保持）
+        plain_md = "".join(line for i, line in enumerate(lines) if keep[i])
+        return plain_md, table_ranges
+    
+
+    def merge_tables(self, plain_md: str, md_orig: str, table_ranges):
+        lines_orig = md_orig.splitlines(keepends=True)
+        plain_lines = plain_md.splitlines(keepends=True)
+
+        # plain_lines に表を挿入していく
+        offset = 0
+        for s, e in sorted(table_ranges):
+            table_block = "".join(lines_orig[s:e])
+            insert_at = s - offset  # plain_lines は表行が削れている分だけ短い
+            plain_lines.insert(insert_at, table_block)
+            offset += (e - s)
+        return "".join(plain_lines)
